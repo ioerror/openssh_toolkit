@@ -1,0 +1,5 @@
+This is a collection of patches, configuration files and programs for OpenSSH.
+
+You'll find hardened configuration files in configs/
+You'll find helpful programs in src/
+You'll find useful patches in patches/
