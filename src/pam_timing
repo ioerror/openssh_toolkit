@@ -38,12 +38,13 @@ else
 fi
 
 SSHOPTS="-oUserKnownHostsFile=";
-EXPECT=`which expect`;
-PURESSH=`which ssh`;
+EXPECT="`which expect`";
+PURESSH="`which ssh`";
 CLEARENV="env -i ";
 SSH=$CLEARENV$PURESSH;
-SSHKEYSCAN=`which ssh-keyscan`;
-if [ ! -x $EXPECT ] && [ ! -x $SSH ] && [ ! -x $SSHKEYSCAN ];
+SSHKEYSCAN="`which ssh-keyscan`";
+BC="`which bc`";
+if [ ! -x $EXPECT ] || [ ! -x $PURESSH ] || [ ! -x $SSHKEYSCAN ] || [ ! -x $BC ] ;
 then
     echo "Required software is missing. Please install it.";
     exit 1;
@@ -152,7 +153,7 @@ probe_user_jitter() {
         TD="$(($(($T1 - $T0)) + $TD))";
         echo "$TR seconds ]"
     done
-    AVG=$(echo "$TD * 100 / $RUNS" | bc); # Floats, sorta (why bash? why?)
+    AVG=$(echo "$TD * 100 / $RUNS" | $BC); # Floats, sorta (why bash? why?)
     export ONEBYTERETURNVALUESARENTENOUGH="$AVG";
 }
 
@@ -174,9 +175,9 @@ timing_compare() {
     # Some systems have a fixed high return time for known *good* users
     # Load on the target system will likely result in even worse results.
     echo "We've found that likely bad users have an average jitter of:" \
-         "$(echo "scale=2; $BADUSERJITTER / 100.0" | bc ) seconds.";
+         "$(echo "scale=2; $BADUSERJITTER / 100.0" | $BC ) seconds.";
     echo "We've found that $TESTUSER has an average jitter of:" \
-         "$(echo "scale=2; $TESTUSERJITTER / 100.0" | bc ) seconds.";
+         "$(echo "scale=2; $TESTUSERJITTER / 100.0" | $BC ) seconds.";
     if [ "$BADUSERJITTER" -eq "$TESTUSERJITTER" ] && \
        [ "$TESTUSERJITTER" -eq 1000 ]; # Actually ten seconds...
     then
