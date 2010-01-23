@@ -57,7 +57,7 @@ then
 fi
 
 gen_temp() {
-    export HOSTKEYFILE=`mktemp`;
+    export HOSTKEYFILE=`mktemp /tmp/tmp.XXXXXXXXXX`;
     export CLEANUP=$HOSTKEYFILE;
 }
 
@@ -71,7 +71,7 @@ fetch_host_key() {
 }
 
 gen_rand_username() {
-    export BADUSER="`head -c42 < /dev/urandom |tr -dc A-Za-z0-9`";
+    export BADUSER="`head -c42 < /dev/urandom | strings -1 | tr -dc A-Za-z0-9`";
 }
 
 prep_for_probe() {
@@ -82,7 +82,7 @@ prep_for_probe() {
 
 # If this returns 23; we've found a host that only allows publickey login
 expect_pubkey_probe() {
-    export EXPECT_PUBKEY_PROBE=`mktemp`;
+    export EXPECT_PUBKEY_PROBE=`mktemp /tmp/tmp.XXXXXXXXXX`;
     export CLEANUP=$CLEANUP" "$EXPECT_PUBKEY_PROBE;
 cat << EOF > $EXPECT_PUBKEY_PROBE
     spawn $SSH $SSHOPTS$HOSTKEYFILE -l $EXPECTUSER $TESTHOST
@@ -110,7 +110,7 @@ pubkey_probe() {
 }
 
 update_expect_password_probe() {
-    export EXPECT_PASSWD_PROBE=`mktemp`;
+    export EXPECT_PASSWD_PROBE=`mktemp /tmp/tmp.XXXXXXXXXX`;
     export CLEANUP=$CLEANUP" "$EXPECT_PASSWD_PROBE;
 cat << EOF > $EXPECT_PASSWD_PROBE
     spawn $SSH $SSHOPTS$HOSTKEYFILE -l $EXPECTUSER $TESTHOST
@@ -122,7 +122,7 @@ EOF
 }
 
 update_expect_probe_handler() {
-    export EXPECT_ERROR_PROBE=`mktemp`;
+    export EXPECT_ERROR_PROBE=`mktemp /tmp/tmp.XXXXXXXXXX`;
     export CLEANUP=$CLEANUP" "$EXPECT_ERROR_PROBE;
 cat << EOF > $EXPECT_ERROR_PROBE
         spawn $EXPECT -f $EXPECT_PASSWD_PROBE
