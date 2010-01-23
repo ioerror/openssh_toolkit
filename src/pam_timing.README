@@ -1,0 +1,17 @@
+pam_timing by Jacob Appelbaum <jacob@appelbaum.net>
+(C) Jan 23, 2010 - Reykjavik, Iceland
+
+This implements an old but well known PAM timing attack against OpenSSH.
+
+This was implemented in bash because I lost a bet. Don't ask.
+
+If you're not using public keys for authorization, OpenSSH may leak
+information about valid users of your system through the PAM subsystem.
+Not all systems are vulnerable and this timing issue dates to 2003.
+It is rare to find vulnerable systems in the wild.
+
+XXX TODO: Hang head in shame for implementing psuedo fixed-point numbers
+
+This is Free Software released under the BSD license.
+
+Thanks to Christian Fromme <kaner@strace.org> and Niki Yoshiuchi
