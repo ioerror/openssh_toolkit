@@ -25,23 +25,29 @@ CLEANUP="";
 help() {
     echo "pam_timing version $VERSION";
     echo "Measure failed login timing information about remote OpenSSH users.";
-    echo "$0 user host";
+    echo "$0 user host port";
     exit 1;
 }
 
-if [ "$#" != "2" ];
+if [ ! "$#" == "2" ] && [ ! "$#" == "3" ];
 then
     help;
 else
     export TESTUSER="$1";
     export TESTHOST="$2";
+    if [ ! -z $3 ];
+    then
+        export TESTPORT=" -p $3";
+    else
+        export TESTPORT=" -p 22";
+    fi
 fi
 
 SSHOPTS="-oUserKnownHostsFile=";
 EXPECT="`which expect`";
 PURESSH="`which ssh`";
 CLEARENV="env -i ";
-SSH=$CLEARENV$PURESSH;
+SSH=$CLEARENV$PURESSH$TESTPORT;
 SSHKEYSCAN="`which ssh-keyscan`";
 BC="`which bc`";
 if [ ! -x $EXPECT ] || [ ! -x $PURESSH ] || [ ! -x $SSHKEYSCAN ] || [ ! -x $BC ] ;
