@@ -1,8 +1,14 @@
 #!/bin/bash
 #
-# Return the remote host OpenSSH version banner and disconnects after one
+# protocol_banner_scanner by Jacob Appelbaum <jacob@appelbaum.net>
+# (C) Jan 24, 2010 - Reykjavik, Iceland
+#
+# Return the remote host OpenSSH version banner and disconnect after one
 # second.
 #
+# This is Free Software released under the BSD license.
+#
+
 OURVERSION="SSH-2.0-OpenSSH_5";
 NC="`which nc`";
 NCARGS="-w 1 -r";
@@ -12,7 +18,7 @@ VERSION="3.1";
 
 help() {
     echo "protocol_banner_scanner version $VERSION";
-    echo "Return the remote host OpenSSH version banner and disconnect";
+    echo "Return the remote host OpenSSH version banner and disconnect.";
     echo "$0 host port";
     exit 1;
 }

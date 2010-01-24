@@ -1,0 +1,7 @@
+protocol_banner_scanner by Jacob Appelbaum <jacob@appelbaum.net>
+(C) Jan 24, 2010 - Reykjavik, Iceland
+
+Return the remote host OpenSSH version banner and disconnect after one
+second.
+
+This is Free Software released under the BSD license.
