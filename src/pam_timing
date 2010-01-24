@@ -15,8 +15,10 @@
 # XXX TODO: Hang head in shame for implementing psuedo fixed-point numbers
 #
 # This is Free Software released under the BSD license.
+# It has been tested on Debian Gnu/Linux and Mac OS X.
 #
-# Thanks to Christian Fromme <kaner@strace.org> and Niki Yoshiuchi
+# Thanks to Christian Fromme <kaner@strace.org>, Niki Yoshiuchi, and
+# Christiane Ruetten <cr@23bit.net>
 #
 
 VERSION=3.1;
