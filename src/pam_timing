@@ -146,7 +146,7 @@ probe_user_jitter() {
     # bypass the insanity that is bash return value limitations!
     export EXPECTUSER="$1";
     TD=0;
-    RUNS=3;
+    RUNS=7;
     echo "Attempting to probe for $EXPECTUSER";
     prep_expect;
     echo "Sending probes...";
